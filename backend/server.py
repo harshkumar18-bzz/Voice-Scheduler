@@ -15,6 +15,7 @@ from fastapi import FastAPI, APIRouter, Request, Response, HTTPException, Depend
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field, EmailStr
+import asyncio
 import dateparser
 from dateparser.search import search_dates
 
@@ -268,6 +269,8 @@ async def update_event(event_id: str, body: EventUpdate, user: dict = Depends(ge
     if event["user_id"] != user["id"] and user["role"] != "ADMIN":
         raise HTTPException(status_code=403, detail="Not allowed")
     updates = {k: v for k, v in body.model_dump().items() if v is not None}
+    if "start_time" in updates:
+        updates["reminder_sent"] = False
     await db.events.update_one({"id": event_id}, {"$set": updates})
     updated = await db.events.find_one({"id": event_id}, {"_id": 0})
     return updated
@@ -281,6 +284,12 @@ async def delete_event(event_id: str, user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=403, detail="Not allowed")
     await db.events.delete_one({"id": event_id})
     return {"message": "Event deleted"}
+
+@api_router.get("/events/conflicts")
+async def event_conflicts(start: str, end: str, exclude_id: str = "", user: dict = Depends(get_current_user)):
+    events = await db.events.find({"user_id": user["id"], "start_time": {"$lt": end},
+                                   "end_time": {"$gt": start}}, {"_id": 0}).to_list(100)
+    return {"conflicts": [e for e in events if e["id"] != exclude_id]}
 
 @api_router.get("/events/availability")
 async def availability(date: str, user: dict = Depends(get_current_user)):
@@ -443,8 +452,36 @@ SEED_USERS = [
     {"email": "user@scheduler.com", "password": "User@123", "name": "Uma User", "role": "USER"},
 ]
 
+async def reminder_loop():
+    while True:
+        try:
+            now = datetime.now()
+            events = await db.events.find({"reminder_sent": {"$ne": True}}, {"_id": 0}).to_list(2000)
+            for e in events:
+                try:
+                    start = datetime.fromisoformat(e["start_time"])
+                except (ValueError, KeyError):
+                    continue
+                if start.tzinfo:
+                    start = start.replace(tzinfo=None)
+                if start <= now:
+                    await db.events.update_one({"id": e["id"]}, {"$set": {"reminder_sent": True}})
+                    continue
+                owner = await db.users.find_one({"id": e["user_id"]}, {"_id": 0})
+                if not owner:
+                    continue
+                prefs = await get_prefs(owner["id"])
+                mins = prefs.get("reminder_minutes_before", 30)
+                if start - timedelta(minutes=mins) <= now:
+                    await dispatch_notifications(owner, e, "REMINDER")
+                    await db.events.update_one({"id": e["id"]}, {"$set": {"reminder_sent": True}})
+        except Exception as ex:
+            logger.error(f"reminder loop error: {ex}")
+        await asyncio.sleep(60)
+
 @app.on_event("startup")
 async def startup():
+    asyncio.create_task(reminder_loop())
     await db.users.create_index("email", unique=True)
     await db.events.create_index([("user_id", 1), ("start_time", 1)])
     for s in SEED_USERS:

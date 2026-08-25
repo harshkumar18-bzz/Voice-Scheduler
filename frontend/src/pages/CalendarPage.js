@@ -3,26 +3,54 @@ import { api, formatApiError } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import dayjs from "dayjs";
-import { ChevronLeft, ChevronRight, Plus, X, Trash2, Mic } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, X, Trash2, Mic, AlertTriangle } from "lucide-react";
 
-function EventModal({ date, onClose, onSaved }) {
-  const [form, setForm] = useState({
-    title: "", description: "", location: "",
-    date: date.format("YYYY-MM-DD"), start: "09:00", end: "09:30", attendees: "",
-  });
+function EventModal({ date, event, onClose, onSaved }) {
+  const editing = !!event;
+  const [form, setForm] = useState(() =>
+    editing
+      ? {
+          title: event.title, description: event.description || "", location: event.location || "",
+          date: dayjs(event.start_time).format("YYYY-MM-DD"),
+          start: dayjs(event.start_time).format("HH:mm"),
+          end: dayjs(event.end_time).format("HH:mm"),
+          attendees: (event.attendees || []).join(", "),
+        }
+      : {
+          title: "", description: "", location: "",
+          date: date.format("YYYY-MM-DD"), start: "09:00", end: "09:30", attendees: "",
+        }
+  );
   const [busy, setBusy] = useState(false);
+  const [conflicts, setConflicts] = useState([]);
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+
+  useEffect(() => {
+    if (!form.date || !form.start || !form.end) return;
+    const timer = setTimeout(() => {
+      api.get("/events/conflicts", {
+        params: { start: `${form.date}T${form.start}:00`, end: `${form.date}T${form.end}:00`, exclude_id: event?.id || "" },
+      }).then((r) => setConflicts(r.data.conflicts)).catch(() => {});
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [form.date, form.start, form.end, event]);
 
   const save = async (e) => {
     e.preventDefault();
     setBusy(true);
     try {
-      await api.post("/events", {
+      const payload = {
         title: form.title, description: form.description, location: form.location,
         start_time: `${form.date}T${form.start}:00`, end_time: `${form.date}T${form.end}:00`,
-        attendees: form.attendees ? form.attendees.split(",").map((s) => s.trim()) : [],
-      });
-      toast.success("Event created — notifications dispatched");
+        attendees: form.attendees ? form.attendees.split(",").map((s) => s.trim()).filter(Boolean) : [],
+      };
+      if (editing) {
+        await api.put(`/events/${event.id}`, payload);
+        toast.success("Event updated");
+      } else {
+        await api.post("/events", payload);
+        toast.success("Event created — notifications dispatched");
+      }
       onSaved();
     } catch (err) {
       toast.error(formatApiError(err.response?.data?.detail));
@@ -35,7 +63,7 @@ function EventModal({ date, onClose, onSaved }) {
     <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-white border border-slate-200 shadow-xl rounded-lg w-full max-w-md p-6 fade-in-up" onClick={(e) => e.stopPropagation()} data-testid="event-modal">
         <div className="flex items-center justify-between mb-5">
-          <h3 className="font-heading text-xl font-medium">New event</h3>
+          <h3 className="font-heading text-xl font-medium">{editing ? "Edit event" : "New event"}</h3>
           <button onClick={onClose} data-testid="event-modal-close" className="text-[#63635E] hover:text-[#1A1A18]"><X size={18} /></button>
         </div>
         <form onSubmit={save} className="space-y-3">
@@ -48,9 +76,21 @@ function EventModal({ date, onClose, onSaved }) {
           <input data-testid="event-location-input" placeholder="Location (optional)" value={form.location} onChange={set("location")} className={inputCls} />
           <input data-testid="event-attendees-input" placeholder="Attendees, comma separated (optional)" value={form.attendees} onChange={set("attendees")} className={inputCls} />
           <textarea data-testid="event-description-input" placeholder="Description (optional)" rows={2} value={form.description} onChange={set("description")} className={inputCls} />
+          {conflicts.length > 0 && (
+            <div data-testid="conflict-warning" className="rounded-md bg-amber-50 border border-amber-300 px-3 py-2.5">
+              <p className="text-xs font-bold uppercase tracking-[0.15em] text-amber-800 flex items-center gap-1.5">
+                <AlertTriangle size={12} strokeWidth={2} /> Schedule conflict
+              </p>
+              {conflicts.map((c) => (
+                <p key={c.id} className="text-xs text-amber-800 mt-1">
+                  Overlaps “{c.title}” ({dayjs(c.start_time).format("h:mm A")} – {dayjs(c.end_time).format("h:mm A")})
+                </p>
+              ))}
+            </div>
+          )}
           <button data-testid="event-save-button" disabled={busy}
             className="w-full rounded-full bg-[#C25E4B] hover:bg-[#A64D3B] text-white py-2.5 text-sm font-semibold transition-colors disabled:opacity-60">
-            {busy ? "Saving…" : "Create event"}
+            {busy ? "Saving…" : editing ? "Save changes" : conflicts.length > 0 ? "Create anyway" : "Create event"}
           </button>
         </form>
       </div>
@@ -63,6 +103,7 @@ export default function CalendarPage() {
   const [month, setMonth] = useState(dayjs().startOf("month"));
   const [events, setEvents] = useState([]);
   const [modalDate, setModalDate] = useState(null);
+  const [editEvent, setEditEvent] = useState(null);
   const [scope, setScope] = useState("mine");
   const canSeeTeam = user.role === "MANAGER" || user.role === "ADMIN";
 
@@ -131,14 +172,14 @@ export default function CalendarPage() {
                   <div className="mt-1 space-y-0.5 mx-0.5">
                     {eventsOn(day).slice(0, 3).map((e) => (
                       <div key={e.id} data-testid={`event-pill-${e.id}`}
-                        onClick={(ev) => ev.stopPropagation()}
-                        className="group flex items-center justify-between rounded-sm px-2 py-1 text-xs font-medium truncate bg-orange-100 text-orange-800 border-l-2 border-orange-500">
+                        onClick={(ev) => { ev.stopPropagation(); if (e.user_id === user.id || user.role === "ADMIN") setEditEvent(e); }}
+                        className="group flex items-center justify-between rounded-sm px-2 py-1 text-xs font-medium truncate bg-orange-100 text-orange-800 border-l-2 border-orange-500 cursor-pointer hover:bg-orange-200 transition-colors">
                         <span className="truncate flex items-center gap-1">
                           {e.created_via === "voice" && <Mic size={9} className="shrink-0 text-[#4A6E53]" />}
                           {dayjs(e.start_time).format("h:mma")} {e.title}
                         </span>
                         {(e.user_id === user.id || user.role === "ADMIN") && (
-                          <button onClick={() => removeEvent(e.id)} data-testid={`delete-event-${e.id}`}
+                          <button onClick={(ev) => { ev.stopPropagation(); removeEvent(e.id); }} data-testid={`delete-event-${e.id}`}
                             className="opacity-0 group-hover:opacity-100 text-orange-700 hover:text-red-600 shrink-0 ml-1">
                             <Trash2 size={10} />
                           </button>
@@ -154,7 +195,11 @@ export default function CalendarPage() {
         </div>
       </div>
 
-      {modalDate && <EventModal date={modalDate} onClose={() => setModalDate(null)} onSaved={() => { setModalDate(null); load(); }} />}
+      {(modalDate || editEvent) && (
+        <EventModal date={modalDate || dayjs()} event={editEvent}
+          onClose={() => { setModalDate(null); setEditEvent(null); }}
+          onSaved={() => { setModalDate(null); setEditEvent(null); load(); }} />
+      )}
     </div>
   );
 }

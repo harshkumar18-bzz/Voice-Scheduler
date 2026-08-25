@@ -135,6 +135,68 @@ class TestEvents:
         assert not any(e["id"] == eid for e in s.get(f"{API}/events").json())
 
 
+# ---------- Iteration 2: Conflicts + PUT event ----------
+class TestConflictsAndUpdate:
+    def _mkiso(self, days, hours=0, mins=0):
+        d = datetime.utcnow() + timedelta(days=days, hours=hours, minutes=mins)
+        return d.replace(microsecond=0).isoformat()
+
+    def test_conflicts_endpoint(self, user_session):
+        s, _ = user_session
+        start = self._mkiso(3, 10)
+        end = self._mkiso(3, 11)
+        ev = s.post(f"{API}/events", json={"title": "TEST_conflict_base", "start_time": start, "end_time": end}).json()
+        eid = ev["id"]
+        # overlapping window
+        ov_start = self._mkiso(3, 10, 30)
+        ov_end = self._mkiso(3, 11, 30)
+        r = s.get(f"{API}/events/conflicts", params={"start": ov_start, "end": ov_end})
+        assert r.status_code == 200, r.text
+        conflicts = r.json()["conflicts"]
+        assert any(c["id"] == eid for c in conflicts), f"expected {eid} in {conflicts}"
+        # exclude_id should remove it
+        r2 = s.get(f"{API}/events/conflicts", params={"start": ov_start, "end": ov_end, "exclude_id": eid})
+        assert r2.status_code == 200
+        assert not any(c["id"] == eid for c in r2.json()["conflicts"])
+        # non-overlapping window
+        no_start = self._mkiso(3, 12)
+        no_end = self._mkiso(3, 13)
+        r3 = s.get(f"{API}/events/conflicts", params={"start": no_start, "end": no_end})
+        assert r3.status_code == 200
+        assert not any(c["id"] == eid for c in r3.json()["conflicts"])
+        s.delete(f"{API}/events/{eid}")
+
+    def test_update_event_and_reminder_reset(self, user_session):
+        s, _ = user_session
+        start = self._mkiso(4, 10)
+        end = self._mkiso(4, 11)
+        ev = s.post(f"{API}/events", json={"title": "TEST_update", "start_time": start, "end_time": end}).json()
+        eid = ev["id"]
+        # Simulate that reminder already sent by directly PUT — but we can only via API; instead check flag flips.
+        # First update WITHOUT changing start_time — reminder_sent unchanged (should stay False or absent)
+        r = s.put(f"{API}/events/{eid}", json={"title": "TEST_update_renamed"})
+        assert r.status_code == 200, r.text
+        assert r.json()["title"] == "TEST_update_renamed"
+        # GET verify
+        lst = s.get(f"{API}/events").json()
+        got = next(e for e in lst if e["id"] == eid)
+        assert got["title"] == "TEST_update_renamed"
+        assert got["start_time"] == start
+        # Now change start_time — reminder_sent should be reset to False
+        new_start = self._mkiso(4, 14)
+        new_end = self._mkiso(4, 15)
+        r2 = s.put(f"{API}/events/{eid}", json={"start_time": new_start, "end_time": new_end})
+        assert r2.status_code == 200, r2.text
+        assert r2.json()["start_time"] == new_start
+        assert r2.json().get("reminder_sent") is False
+        # Ownership: another user cannot update
+        s2, _ = _login(MANAGER)
+        assert s2.put(f"{API}/events/{eid}", json={"title": "hack"}).status_code == 403
+        # 404
+        assert s.put(f"{API}/events/nonexistent", json={"title": "x"}).status_code == 404
+        s.delete(f"{API}/events/{eid}")
+
+
 # ---------- Preferences & Notifications ----------
 class TestPrefs:
     def test_get_update(self, user_session):
