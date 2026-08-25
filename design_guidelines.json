@@ -1,0 +1,149 @@
+{
+  "theme_name": "The Grounded Command Center",
+  "theme_archetype": "Organic & Earthy (Archetype 1) mixed with Swiss High-Contrast structural grids",
+  "emotional_goal": "Transforming stressful calendar management into a calm, focused, and highly legible experience through organic tones and precision grids.",
+  "typography": {
+    "strategy": "The 'Soft Utility' pairing to balance the rigid calendar grids.",
+    "fonts": {
+      "headings": "Manrope",
+      "body": "IBM Plex Sans",
+      "mono": "JetBrains Mono"
+    },
+    "scales": {
+      "h1": "text-4xl sm:text-5xl lg:text-6xl tracking-tight leading-none font-light text-primary-900",
+      "h2": "text-2xl sm:text-3xl lg:text-4xl tracking-tight leading-tight text-primary-900",
+      "h3": "text-xl sm:text-2xl font-medium tracking-tight",
+      "h4": "text-lg font-medium",
+      "body": "text-base leading-relaxed text-slate-700",
+      "labels": "text-xs font-bold uppercase tracking-[0.2em] text-slate-500",
+      "time_gutter": "font-mono text-[11px] text-slate-400 uppercase tracking-widest"
+    },
+    "rules": [
+      "NEVER use Inter, Roboto, or Open Sans for headings.",
+      "Always apply strict letter-spacing rules: tighter for large text, looser for small uppercase labels.",
+      "Maintain a 5.3:1 ratio for extreme contrast in headers vs labels (e.g., Month Name vs Day of Week)."
+    ]
+  },
+  "colors": {
+    "mode": "light",
+    "palette": {
+      "background": "#F6F5F2",
+      "surface": "#FFFFFF",
+      "surface_hover": "#F0EFEA",
+      "text_primary": "#1A1A18",
+      "text_secondary": "#63635E",
+      "border": "rgba(26,26,24,0.09)",
+      "primary": "#C25E4B",
+      "primary_hover": "#A64D3B",
+      "accent_voice": "#4A6E53",
+      "accent_manager": "#D89A5E",
+      "accent_admin": "#4A5A6E"
+    },
+    "rules": [
+      "Tinted Grey Rule: All greys MUST have a slight warm (yellow/orange) tint. Never use pure #000000 or neutral #808080.",
+      "Use #C25E4B (Terracotta) strictly for primary actions (Create Event, Save Preferences).",
+      "Use #4A6E53 (Moss Green) specifically for the Voice Scheduling UI to indicate active 'listening/recording' state."
+    ]
+  },
+  "surfaces_and_materials": {
+    "cards_and_widgets": {
+      "style": "Neumorphism (Tactile Variant)",
+      "classes": "bg-white shadow-sm border border-[rgba(26,26,24,0.09)] rounded-xl"
+    },
+    "calendar_grid": {
+      "style": "Grid Borders (Technical Look)",
+      "classes": "border-collapse border-border/40",
+      "rule": "Use high-transparency grid lines (rgba(0,0,0,0.09)) for calendar borders to guide the eye without competing with event blocks."
+    },
+    "voice_activation_pill": {
+      "style": "The Tracing Beam + Glassmorphism",
+      "classes": "backdrop-blur-2xl bg-white/70 backdrop-saturate-150 border border-white/40 shadow-[0_8px_32px_rgba(0,0,0,0.12)] rounded-full",
+      "active_state": "Add animated gradient border or intense drop-shadow drop-shadow-[0_0_12px_rgba(74,110,83,0.4)] when listening."
+    },
+    "dropdowns_and_modals": {
+      "style": "Solid / Optical Clarity",
+      "classes": "bg-white border border-slate-200 shadow-xl rounded-lg",
+      "rule": "CRITICAL: NEVER use a completely transparent background. All dropdowns, popovers, and sticky headers must have a solid background or heavy backdrop-blur with minimum 80% opacity to ensure text remains readable."
+    }
+  },
+  "layout_and_grids": {
+    "dashboard_mode": "High Density Grid (Mode B)",
+    "container": "w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12",
+    "spacing_philosophy": "Generous Spacing. Use p-6 or p-8 inside cards. Use gap-6 or gap-8 between bento grid items.",
+    "role_specific_layouts": {
+      "Admin": "Data-heavy. Use grid-cols-1 lg:grid-cols-4 gap-6. One col-span-3 for User Management Table, one col-span-1 for System Stats.",
+      "Manager": "Team overview. Horizontal timeline view on top (col-span-full), team member list below (grid-cols-2).",
+      "User": "Personal focus. Large monthly/weekly calendar taking col-span-8, with an 'Upcoming Meetings' & 'Preferences' sidebar taking col-span-4."
+    }
+  },
+  "component_instructions": {
+    "forms_and_inputs": [
+      "Use Shadcn UI components for logic but strip the default Vercel-look.",
+      "Inputs: rounded-md, bg-transparent, border-slate-300, focus:border-primary focus:ring-1 focus:ring-primary.",
+      "Notification Preferences Panel: Use Shadcn Switch/Toggle for Email/SMS/Voice Call. Group them in a clean list with generous padding (py-4) and a 1px border-b between items."
+    ],
+    "calendar_ui": [
+      "Avoid standard off-the-shelf calendar look. Build an interactive grid with Tailwind CSS.",
+      "Event blocks should not touch the grid edges. Leave 2px of negative space around event pills.",
+      "Event pills: rounded-sm, px-2 py-1, text-xs font-medium truncate, bg-orange-100 text-orange-800 border-l-2 border-orange-500."
+    ],
+    "voice_interface": [
+      "Implement a prominent floating action button (FAB) or bottom-docked pill for the microphone.",
+      "Include a real-time transcription feedback area: text should appear with a slight fade-in animation as they speak.",
+      "Use Lucide-react icons for the microphone (e.g., Mic, MicOff)."
+    ]
+  },
+  "motion_and_interaction": {
+    "hover_states": "All buttons must explicitly define hover text colors (e.g., hover:bg-primary-hover hover:text-white). Slightly lift cards (-translate-y-0.5).",
+    "entrance_animations": "Stagger the entrance of dashboard widgets and calendar events using framer-motion or simple CSS keyframes.",
+    "voice_pulse": "When voice recording is active, use a subtle ping or pulse animation on the microphone icon wrapper."
+  },
+  "icons": {
+    "library": "lucide-react",
+    "style": "Use stroke-width 1.5 for a sophisticated, lighter appearance.",
+    "installation": "npm install lucide-react"
+  },
+  "images": {
+    "rules": [
+      "No placeholder images (via.placeholder.com etc.) allowed.",
+      "Avatars should map directly to user roles."
+    ],
+    "assets": [
+      {
+        "url": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDN8MHwxfHNlYXJjaHwxfHxwcm9mZXNzaW9uYWwlMjBoZWFkc2hvdCUyMHBvcnRyYWl0fGVufDB8fHx8MTc4NzQ5MDM5NXww&ixlib=rb-4.1.0&q=85",
+        "description": "User Avatar - Standard User Role",
+        "category": "avatar"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDN8MHwxfHNlYXJjaHwzfHxwcm9mZXNzaW9uYWwlMjBoZWFkc2hvdCUyMHBvcnRyYWl0fGVufDB8fHx8MTc4NzQ5MDM5NXww&ixlib=rb-4.1.0&q=85",
+        "description": "User Avatar - Manager Role",
+        "category": "avatar"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDN8MHwxfHNlYXJjaHwyfHxwcm9mZXNzaW9uYWwlMjBoZWFkc2hvdCUyMHBvcnRyYWl0fGVufDB8fHx8MTc4NzQ5MDM5NXww&ixlib=rb-4.1.0&q=85",
+        "description": "User Avatar - Admin Role",
+        "category": "avatar"
+      },
+      {
+        "url": "https://images.pexels.com/photos/5529714/pexels-photo-5529714.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Warm sand abstract texture",
+        "category": "background_login_hero"
+      }
+    ]
+  },
+  "accessibility_and_testing": {
+    "data_testid": "CRITICAL: All interactive elements (buttons, links, form inputs, toggles, calendar days, event blocks) MUST include a kebab-case data-testid attribute based on role.",
+    "contrast": "Ensure text contrast on primary buttons meets 4.5:1 ratio.",
+    "reduced_motion": "Wrap continuous animations (like the voice recording pulse) in a prefers-reduced-motion media query check."
+  },
+  "universal_guidelines_for_main_agent": [
+    "You are building a React application using .js/.jsx files. DO NOT use TypeScript (.tsx).",
+    "Avoid the generic 'AI slop' aesthetic. Do not make generic centered layouts. Left-align dense content.",
+    "Create depth through layered design elements (z-index hierarchy) but avoid overusing heavy shadows. Use 1px borders and subtle ambient shadow.",
+    "NEVER use completely transparent backgrounds for elements overlapping content (dropdowns, modals, floating voice UI).",
+    "Implement toasts using the 'sonner' library.",
+    "Do not center-align the main App container (.App { text-align: center; } is banned).",
+    "Use micro-animations for interactions (hover states, focus rings, expanding sidebars).",
+    "Use existing Shadcn UI primitives from src/components/ui/ when possible, adapting their styles to fit the Earthy/Swiss theme."
+  ]
+}
